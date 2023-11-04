@@ -10,17 +10,20 @@ import android.os.Bundle
 import android.os.Handler
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
+import android.view.MotionEvent.ACTION_CANCEL
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.NotificationCompat
 
 
 class MainActivity : AppCompatActivity() {
-    var count = 0
+
     private lateinit var telephonyManager : TelephonyManager
     private val networkChangeReceiver = NetworkChangeReceiver()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel("network_change_channel", "Network Change Channel", NotificationManager.IMPORTANCE_DEFAULT)
@@ -36,6 +39,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         val intentFilter = IntentFilter()
         intentFilter.addAction("android.net.conn.CONNECTIVITY_CHANGE")
+        intentFilter.addAction("com.z.widgets.networkChangeReceiver.actionCancelNotification")
         registerReceiver(networkChangeReceiver, intentFilter)
     }
 

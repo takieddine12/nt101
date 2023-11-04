@@ -7,17 +7,22 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.telephony.CellInfoLte
 import android.telephony.PhoneStateListener
 import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import android.util.Log
+import android.view.MotionEvent.ACTION_CANCEL
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import java.security.Provider.Service
 
 class NetworkService : android.app.Service() {
 
     private lateinit var telephonyManager : TelephonyManager
+    private lateinit var notificationManager: NotificationManager
 
     override fun onCreate() {
         super.onCreate()
@@ -65,22 +70,26 @@ class NetworkService : android.app.Service() {
     }
 
     private fun showNetworkChangeNotification(networkType: String) {
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel("network_change_channel", "Network Change Channel", NotificationManager.IMPORTANCE_DEFAULT)
             notificationManager.createNotificationChannel(channel)
         }
 
         val notificationIntent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT)
+        val pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent,  PendingIntent.FLAG_IMMUTABLE)
+
+
 
         val notification = NotificationCompat.Builder(this, "network_change_channel")
             .setContentTitle("Network Changed")
             .setContentText("Network Type: $networkType")
             .setSmallIcon(R.drawable.baseline_circle_notifications_24)
             .setContentIntent(pendingIntent)
+            .addAction(R.drawable.baseline_circle_notifications_24,"Reset",getCancelPendingIntent())
             .setAutoCancel(true)
             .build()
+
 
         if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O){
             startForeground(1,notification)
@@ -88,9 +97,36 @@ class NetworkService : android.app.Service() {
             notificationManager.notify(1, notification)
         }
 
+        Log.d("TAG","Current Rsrp ${getRsrpValues()}")
+        if(getRsrpValues() >= -100 && getRsrpValues() <= -120){
+            Log.d("TAG","RSRP " + getRsrpValues())
+            Handler().postDelayed({ notificationManager.cancel(1) }, 15000)
+        }
 
     }
 
 
+    private fun getCancelPendingIntent() : PendingIntent {
+        val intent = Intent(this,NetworkChangeReceiver::class.java)
+        intent.action = "com.z.widgets.networkChangeReceiver.actionCancelNotification"
+        return PendingIntent.getBroadcast(this,0,intent,PendingIntent.FLAG_IMMUTABLE)
+    }
+    @SuppressLint("MissingPermission", "NewApi")
+    private fun getRsrpValues() : Int {
+        var rsrp = 0
+        val cellInfoList = telephonyManager.allCellInfo
+        for (cellInfo in cellInfoList){
+            if(cellInfo is CellInfoLte){
+                rsrp = cellInfo.cellSignalStrength.rsrp
+            }
+        }
+        return rsrp
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        notificationManager.cancel(1)
+        stopSelf()
+    }
 
 }
